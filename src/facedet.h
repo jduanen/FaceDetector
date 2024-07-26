@@ -18,6 +18,7 @@
 #include <USPS.h>
 
 
+// logic signal that indicates a face has been detected
 #define ACTIVATE_PIN    D3
 
 // minimum confidence level required to qualify as a match [0-100]
@@ -29,10 +30,22 @@
 // minimum active time (msec)
 #define MIN_ACTIVE_MS   10000
 
-// amount to delay between sensor samples
-#define LOOP_DELAY      100  //// TODO tune this
+// maximum face registration time (msec)
+#define MAX_REGISTER_MS   10000
 
-// face ID selection switch
-#define PIN_SW0         D10
+// amount to delay between sensor samples
+#define LOOP_DELAY      10  //// TODO tune this
+
+// face ID switch
+#define PIN_SW0         D8
 #define PIN_SW1         D9
-#define PIN_SW2         D8
+#define PIN_SW2         D10
+
+// select switch
+#define SEL_PIN			D2
+
+// operating modes
+typedef enum OprModes_e {
+	DETECT_MODE,
+	REGISTER_MODE
+} OprModes;
