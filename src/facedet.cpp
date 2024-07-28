@@ -55,7 +55,7 @@ OnBoardLED *neoPix;
 
 bool npEnable;
 uint32_t blinkCnt;
-const uint32_t MAX_BLINK_CNT = 10;
+const uint32_t MAX_BLINK_CNT = 1000;
 
 uint8_t registeredFaces;
 
@@ -179,6 +179,7 @@ void loop() {
         break;
     case DETECT_MODE:
         int8_t numFaces = usps->getFaces(faces, MAX_NUM_FACES);
+
         if (numFaces < 0) {
             println("ERROR: failed to read, resetting...");
             // turn User LED red to indicate failure of peripheral read
@@ -188,41 +189,37 @@ void loop() {
             //// TODO decide if I should do a system reset here
             setup(); //// FIXME
             return;
+        } else if (numFaces == 0) {
+            if ((active == true) && ((millis() - activeTime) > MIN_ACTIVE_MS)) {
+                active = false;
+                detects = 0;
+                digitalWrite(ACTIVATE_PIN, LOW);
+                println("v");
+                userLED->off();
+                neoPix->off();
+            }
+            return;
+        }
+
+        detects++;
+        if ((active == false) && (detects >= DETECT_COUNT)) {
+            active = true;
+            activeTime = millis();
+            digitalWrite(ACTIVATE_PIN, HIGH);
+            userLED->on();  // turn User LED White to indicate active
         }
 
         for (int i = 0; (i < numFaces); i++) {
             if (faces[i].idConfidence < MIN_ID_CONFIDENCE) {
-                println("WARNING: face ID below confidence level");
+                //println("WARNING: face ID below confidence level");
+                continue;
             }
-            print("! "); print(i); print(", ")
+            print("^ "); print(i); print(", ")
             print(faces[i].id); print(", ");
             print(faces[i].idConfidence); print(", ");
             println(faces[i].isFacing);
             neoPix->setColor(colors[faces[i].id]);
         }
-
-        if (numFaces > 0) {
-            detects++;
-            if (active == false) {
-                if (detects >= DETECT_COUNT) {
-                    active = true;
-                    activeTime = millis();
-                    digitalWrite(ACTIVATE_PIN, HIGH);
-                    userLED->on();  // turn User LED White to indicate active
-                }
-            }
-        } else {
-            detects = 0;
-            if (active == true) {
-                if ((millis() - activeTime) > MIN_ACTIVE_MS) {
-                    active = false;
-                    digitalWrite(ACTIVATE_PIN, LOW);
-                    userLED->off();  // turn off User LED to indicate inactive
-                }
-            }
-        }
-        print(">> ");println(active);
-        break;
     }
 
     if (digitalRead(SEL_PIN) == 0) {
@@ -234,6 +231,5 @@ void loop() {
         mode = REGISTER_MODE;
     }
 
-    print(".");
     delay(LOOP_DELAY);
 };
