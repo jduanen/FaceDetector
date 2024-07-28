@@ -21,8 +21,11 @@
 // logic signal that indicates a face has been detected
 #define ACTIVATE_PIN    D3
 
-// minimum confidence level required to qualify as a match [0-100]
+// minimum detection confidence level required [0-100]
 #define MIN_CONFIDENCE  85
+
+// minimum ID confidence level required to qualify as a match [0-100]
+#define MIN_ID_CONFIDENCE  85
 
 // number of consecutive detections required to trigger
 #define DETECT_COUNT    1
