@@ -21,17 +21,15 @@
 #include "facedet.h"
 
 
-#define TESTING
+//#define TESTING
 
 
 #ifdef TESTING
-#define     print(val)      Serial.print(val);
-#define     println(val)    Serial.println(val);
-#define     serialInit()    Serial.begin(115200); while (!Serial) { ; }; delay(500);
+#define     tprint(val)      Serial.print(val);
+#define     tprintln(val)    Serial.println(val);
 #else /* TESTING */
-#define     print(val)      ;
-#define     println(val)    ;
-#define     serialInit()    ;
+#define     tprint(val)      ;
+#define     tprintln(val)    ;
 #endif /* TESTING */
 
 #define MAX_NUM_FACES   3
@@ -40,6 +38,7 @@
 void (* resetFunc)(void) = 0;
 
 
+const uint8_t VERBOSE = 0;
 bool active;
 uint8_t detects;
 unsigned long activeTime, registerTime;
@@ -87,7 +86,9 @@ uint8_t readSwitches() {
 };
 
 void setup() {
-    serialInit();
+    Serial.begin(115200);
+    while (!Serial) { ; };
+    delay(500);
 
     pinMode(ACTIVATE_PIN, OUTPUT);
     digitalWrite(ACTIVATE_PIN, LOW);
@@ -108,7 +109,7 @@ void setup() {
     userLED = new OnBoardLED(PIN_LED_R, PIN_LED_G, PIN_LED_B);
     neoPix = new OnBoardLED(NEOPIXEL_POWER, PIN_NEOPIXEL);
 
-    userLED->setColor(BLUE);
+    userLED->setColor(BLACK);
     neoPix->setColor(BLACK);
 
     Wire.begin();
@@ -116,7 +117,7 @@ void setup() {
     // have to wait for the sensor to come up
     int8_t n = -1;
     while (n < 0) {
-        userLED->setColor(RED);
+        userLED->setColor(BLUE);
         USPSface_t faces[1];
         delay(500);
         usps = new USPS(5.0, MIN_CONFIDENCE, true, false, true);
@@ -126,21 +127,27 @@ void setup() {
     userLED->setColor(GREEN);
 
     if (digitalRead(SEL_PIN) == 0) {
-        print("INFO: Erasing registered faces...");
+        if (VERBOSE) {
+            Serial.print("INFO: Erasing registered faces...");
+        }
         if (usps->eraseRegisteredFaces()) {
             neoPix->setColor(RED);
-            println("Failed");
+            if (VERBOSE) {
+                Serial.println("Failed");
+            }
         } else {
             neoPix->setColor(BLUE);
-            println("Done");
+            if (VERBOSE) {
+                Serial.println("Done");
+            }
         }
-        delay(3000);
+        delay(1000);
     }
 
     // turn off User LED and NeoPixel on boot completion
     userLED->off();
     neoPix->off();
-    print("START");
+    tprint("START");
 };
 
 void loop() {
@@ -148,7 +155,6 @@ void loop() {
     USPSface_t faces[MAX_NUM_FACES];
 
     if (digitalRead(SEL_PIN) == 0) {
-        println("X");
         faceIdSel = readSwitches();
         registerTime = millis();
         active = false;
@@ -159,52 +165,54 @@ void loop() {
 
     switch (mode) {
     case REGISTER_MODE:
-        println("R");
         active = false;
         blink(neoPix, colors[faceIdSel]);
         if ((millis() - registerTime) < MAX_REGISTER_MS) {
-            println("RF");
             if (!usps->isFaceRecEnabled()) {
                 if (usps->enableFaceRec(true)) {
-                    println("ERROR: failed to enable face recognition")
+                    if (VERBOSE) {
+                        Serial.printf("ERROR: failed to enable face recognition");
+                    }
                     mode = DETECT_MODE;
                     neoPix->off();
+                    userLED->setColor(CYAN);
                     break;
                 }
             }
             if (usps->registerFace(faceIdSel)) {
-                print("WARNING: failed to register face ID '");
-                print(faceIdSel);
-                println("', retrying...");
+                if (VERBOSE) {
+                    Serial.print("WARNING: failed to register face ID '");
+                    Serial.print(faceIdSel);
+                    Serial.println("', retrying...");
+                }
+                userLED->setColor(YELLOW);
             } else {
                 mode = DETECT_MODE;
                 neoPix->off();
-                println("DONE");
+                tprintln("DONE");
             }
         } else {
-            println("TIMEDOUT");
             neoPix->off();
             mode = DETECT_MODE;
+            tprintln("TIMEDOUT");
         }
         break;
     case DETECT_MODE:
         int8_t numFaces = usps->getFaces(faces, MAX_NUM_FACES);
 
         if (numFaces < 0) {
-            println("ERROR: failed to read, resetting...");
-            // turn User LED red to indicate failure of peripheral read
-            userLED->setColor(RED);
+            if (VERBOSE) {
+                Serial.printf("ERROR: failed to read, resetting...");
+            }
+            userLED->setColor(RED);  // indicate failure of peripheral read
             neoPix->off();
-            ////usps = new USPS(5.0, DEF_CONFIDENCE, true, false, true);
-            //// TODO decide if I should do a system reset here
-            setup(); //// FIXME
+            setup();  // do a complete reset
             return;
         } else if (numFaces == 0) {
             if ((active == true) && ((millis() - activeTime) > MIN_ACTIVE_MS)) {
                 active = false;
                 detects = 0;
                 digitalWrite(ACTIVATE_PIN, LOW);
-                println("v");
                 userLED->off();
                 neoPix->off();
             }
@@ -216,23 +224,24 @@ void loop() {
             active = true;
             activeTime = millis();
             digitalWrite(ACTIVATE_PIN, HIGH);
-            println("^");
-            userLED->on();  // turn User LED White to indicate active
+            userLED->setColor(WHITE);  // indicate detection active
         }
 
         for (int i = 0; (i < numFaces); i++) {
             if (faces[i].idConfidence < MIN_ID_CONFIDENCE) {
-                //println("WARNING: face ID below confidence level");
+                if (VERBOSE) {
+                    Serial.println("WARNING: face ID below confidence level");
+                }
                 continue;
             }
-            print("! "); print(i); print(", ")
-            print(faces[i].id); print(", ");
-            print(faces[i].idConfidence); print(", ");
-            println(faces[i].isFacing);
+
+            //// TODO decide if a checksum is needed/useful
+            Serial.printf("%02x %02x %02x %02x\n",
+                          i, faces[i].id, faces[i].idConfidence, faces[i].isFacing);
             neoPix->setColor(colors[faces[i].id]);
+            userLED->off();
         }
     }
 
-    print(".");
     delay(LOOP_DELAY);
 };
