@@ -147,6 +147,16 @@ void loop() {
     int8_t numFaces;
     USPSface_t faces[MAX_NUM_FACES];
 
+    if (digitalRead(SEL_PIN) == 0) {
+        println("X");
+        faceIdSel = readSwitches();
+        registerTime = millis();
+        active = false;
+        digitalWrite(ACTIVATE_PIN, LOW);
+        userLED->off();
+        mode = REGISTER_MODE;
+    }
+
     switch (mode) {
     case REGISTER_MODE:
         println("R");
@@ -206,6 +216,7 @@ void loop() {
             active = true;
             activeTime = millis();
             digitalWrite(ACTIVATE_PIN, HIGH);
+            println("^");
             userLED->on();  // turn User LED White to indicate active
         }
 
@@ -214,7 +225,7 @@ void loop() {
                 //println("WARNING: face ID below confidence level");
                 continue;
             }
-            print("^ "); print(i); print(", ")
+            print("! "); print(i); print(", ")
             print(faces[i].id); print(", ");
             print(faces[i].idConfidence); print(", ");
             println(faces[i].isFacing);
@@ -222,14 +233,6 @@ void loop() {
         }
     }
 
-    if (digitalRead(SEL_PIN) == 0) {
-        faceIdSel = readSwitches();
-        registerTime = millis();
-        active = false;
-        digitalWrite(ACTIVATE_PIN, LOW);
-        userLED->off();
-        mode = REGISTER_MODE;
-    }
-
+    print(".");
     delay(LOOP_DELAY);
 };
