@@ -16,6 +16,10 @@ detection indications over a serial port. A separate controller can be used
 that takes this serial input and interfaces the face detection/recognition
 subsystem to Home Assistant.
 
+![Face Detector Front](FaceDetFront.png)
+![Face Detector Back](FaceDetBack.png)
+
+** TBD
 * Features
   - Integrated with Home Assistant via independent microcontroller.
     * generate events when faces are detected and provide Face ID
